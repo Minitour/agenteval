@@ -1,28 +1,32 @@
-# agenteval
+# agenteval: Unit Tests for AI Agents
 
-Unit tests for agents. Define an agent with [capa](https://github.com/infragate/capa)'s
-`capabilities.yaml`, write scenarios (a prompt plus declarative MCP mocks and
-assertions), and run the whole suite from one CI-friendly command.
+[![PyPI](https://img.shields.io/pypi/v/agenteval-framework)](https://pypi.org/project/agenteval-framework/)
+[![CI](https://github.com/Minitour/agenteval/actions/workflows/ci.yml/badge.svg)](https://github.com/Minitour/agenteval/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/pypi/pyversions/agenteval-framework)](https://pypi.org/project/agenteval-framework/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-agenteval gives you the parts that are tedious to build yourself:
+agenteval treats an agent run like a unit test. You declare the agent once with [capa](https://github.com/infragate/capa)'s `capabilities.yaml`, write scenarios (a prompt, fake MCP servers seeded with known state, and assertions), and run the whole suite from one CI-friendly command. Providers are pluggable, and Claude Code ships first.
 
-- MCP mock infrastructure: stand up fake MCP servers from a `mock.yaml`
-  (verbatim tool schemas, seed state, declarative responses, optional Python
-  hooks). Every tool call is recorded so assertions can check it.
-- Orchestration: an ephemeral workspace per run, `capa install` to compile your
-  `capabilities.yaml` into provider config, the agent invocation, repeats, and
-  result aggregation.
-- Results: declarative assertions plus an optional LLM judge, written out as
-  JSON, JUnit XML for native CI gating, markdown, and a console summary.
+## Why agenteval?
 
-Providers are pluggable, and Claude Code ships first.
+Testing an AI agent is awkward. It calls real SaaS APIs, burns tokens on every run, and answers a little differently each time. So most agent "tests" are a human eyeballing the output once and calling it good. There is no red/green, nothing to gate a PR on, nothing that tells you a prompt edit quietly broke the Slack integration.
+
+agenteval gives you the parts that are tedious to build yourself. You declare the agent once in `capabilities.yaml`, then write scenarios next to it: a prompt, a set of mock MCP servers seeded with state you control, and assertions about what should happen. Each run gets its own throwaway workspace, talks only to local mocks, and is checked against those assertions. The mocks record every tool call, so you can assert the agent posted to `#releases` exactly once, or never touched a `delete_user` tool at all.
+
+One command runs the whole matrix of scenarios, models, and repeats, aggregates the results, and exits nonzero when something regresses. JUnit XML drops straight into CI.
+
+## What it does
+
+* MCP mock infrastructure: stand up fake MCP servers from a `mock.yaml` with verbatim tool schemas, seed state, declarative responses, and an optional Python escape hatch for stateful tools.
+* Every tool call is recorded, so assertions can check what the agent did, not just what it said.
+* Ephemeral workspace per run, `capa install` to compile `capabilities.yaml` into provider config, the agent invocation, repeats, and result aggregation.
+* Declarative assertions (`mock_state`, `tool_called`, file and output checks) plus an optional LLM judge scored against a rubric.
+* Reports as JSON, JUnit XML for native CI gating, markdown for PR comments, and a console summary.
+* Pluggable providers: a new harness is a `Provider` subclass that picks a different `capa install -p` target, with no changes to the runner.
 
 ## How it works
 
-For every `(scenario, model, repeat)` cell, agenteval builds an isolated
-environment, lets capa bootstrap the agent, runs it against local mocks, then
-checks the side effects. The mocks start before install so capa can validate
-tools against a live server.
+For every `(scenario, model, repeat)` cell, agenteval builds an isolated environment, lets capa bootstrap the agent, runs it against local mocks, then checks the side effects. The mocks start before install so capa can validate tools against a live server.
 
 ```mermaid
 flowchart TD
@@ -43,32 +47,41 @@ flowchart TD
   I --> J["exit nonzero on failure"]
 ```
 
-The framework owns the workspace, the mocks, and the URL rewiring that connects
-them; it delegates all harness provisioning to `capa install -p <provider>`.
-A new provider is a `Provider` subclass that picks a different `-p` target and
-CLI, with no changes to the runner.
+The framework owns the workspace, the mocks, and the URL rewiring that connects them; it delegates all harness provisioning to `capa install -p <provider>`.
 
-## Install
+## Installation
 
 ```bash
 pip install agenteval-framework
 ```
 
-The distribution is `agenteval-framework`; the import package and the CLI are
-both `agenteval`.
+The distribution is `agenteval-framework`; the import package and the CLI are both `agenteval`.
 
 Prerequisites (external, documented by their projects):
 
-- The `capa` binary on PATH. agenteval uses it to compile `capabilities.yaml`.
-- The provider CLI. For Claude that is the `claude` CLI (Claude Code),
-  authenticated via subscription or `ANTHROPIC_API_KEY`.
+* The `capa` binary on PATH. agenteval uses it to compile `capabilities.yaml`.
+* The provider CLI. For Claude that is the `claude` CLI (Claude Code), authenticated via subscription or `ANTHROPIC_API_KEY`.
 
-## Quickstart
+## Quick start
+
+### 1. Scaffold a project
 
 ```bash
-agenteval init my-eval      # scaffold a project
+agenteval init my-eval
 cd my-eval
+```
+
+This drops an `agenteval.yaml`, an agent, and one example scenario next to your code.
+
+### 2. Add your credentials
+
+```bash
 cp .env.example .env        # add ANTHROPIC_API_KEY if your CLI needs it
+```
+
+### 3. Validate and run
+
+```bash
 agenteval validate          # structural check, no model calls
 agenteval run -v            # run the suite
 ```
@@ -153,15 +166,11 @@ judge:
 | `output_contains` | `values`, `mode`, `ignore_case` | final answer contains all/any of `values` |
 | `output_matches` | `pattern`, `ignore_case` | final answer matches a regex |
 
-Each assertion is `required: true` by default; a required failure fails the run
-and sets a nonzero exit code. The `jsonpath` for `mock_state` supports the
-Goessner filter form (`$.coll[?(@.field=='value')]`) and plain paths natively,
-and falls back to `jsonpath-ng` for richer expressions.
+Each assertion is `required: true` by default; a required failure fails the run and sets a nonzero exit code. The `jsonpath` for `mock_state` supports the Goessner filter form (`$.coll[?(@.field=='value')]`) and plain paths natively, and falls back to `jsonpath-ng` for richer expressions.
 
 ## Defining a mock
 
-`mcp/<server>/mock.yaml` is hybrid: declarative by default, with a Python
-escape hatch for stateful behaviour.
+`mcp/<server>/mock.yaml` is hybrid: declarative by default, with a Python escape hatch for stateful behaviour.
 
 ```yaml
 name: slack
@@ -182,11 +191,7 @@ responses:                   # declarative dispatch (used when no handler matche
     result: { ok: true, ts: "{{ now }}" }
 ```
 
-Templating is Jinja2 over `{ args, state, now, uuid }`. A value that is a single
-`{{ expr }}` keeps its native JSON type. Mutations support `append`, `extend`,
-`set`, and `increment`. A `handler.py` may export a `HANDLERS` dict (or
-`tool_<name>` functions); each handler is `fn(args, ctx)` and mutates
-`ctx.state.data`.
+Templating is Jinja2 over `{ args, state, now, uuid }`. A value that is a single `{{ expr }}` keeps its native JSON type. Mutations support `append`, `extend`, `set`, and `increment`. A `handler.py` may export a `HANDLERS` dict (or `tool_<name>` functions); each handler is `fn(args, ctx)` and mutates `ctx.state.data`.
 
 ## CLI
 
@@ -197,42 +202,27 @@ agenteval validate   check structure without calling any model
 agenteval init       scaffold a new eval project
 ```
 
-`run` flags: `--root`, `--filter <substr>`, `--provider`, `--model` (repeatable),
-`--repeat N`, `--report-dir`, `--no-judge`, `--keep-workspace`, `-v`.
+`run` flags: `--root`, `--filter <substr>`, `--provider`, `--model` (repeatable), `--repeat N`, `--report-dir`, `--no-judge`, `--keep-workspace`, `-v`.
 
 ## Reports
 
 `agenteval run` writes to `report.dir` (default `reports/`):
 
-- `results.json`: full per-run records plus per-cell aggregates
-  (mean/stddev/median per metric, pass rate, judge score).
-- `junit.xml`: one testcase per repeat, for native CI gating.
-- `report.md`: a table plus a failure breakdown for PR comments.
+* `results.json`: full per-run records plus per-cell aggregates (mean/stddev/median per metric, pass rate, judge score).
+* `junit.xml`: one testcase per repeat, for native CI gating.
+* `report.md`: a table plus a failure breakdown for PR comments.
 
-The judge defaults to the `claude-cli` backend, which reuses the Claude Code
-CLI's auth (so it works without exporting `ANTHROPIC_API_KEY`). Set
-`judge.backend: anthropic-api` in `agenteval.yaml` to use the Anthropic SDK
-with `ANTHROPIC_API_KEY` instead.
+The judge defaults to the `claude-cli` backend, which reuses the Claude Code CLI's auth (so it works without exporting `ANTHROPIC_API_KEY`). Set `judge.backend: anthropic-api` in `agenteval.yaml` to use the Anthropic SDK with `ANTHROPIC_API_KEY` instead.
 
 ## CI
 
-See [`examples/my-eval/.github/workflows/agenteval.yml`](examples/my-eval/.github/workflows/agenteval.yml)
-for a template. Copy it to your repo root `.github/workflows/`, provide
-`ANTHROPIC_API_KEY` as a secret, install `capa` and the `claude` CLI, then run
-`agenteval run`. The nonzero exit on failure gates the PR; upload `reports/` as
-an artifact and publish `junit.xml`.
+See [`examples/my-eval/.github/workflows/agenteval.yml`](examples/my-eval/.github/workflows/agenteval.yml) for a template. Copy it to your repo root `.github/workflows/`, provide `ANTHROPIC_API_KEY` as a secret, install `capa` and the `claude` CLI, then run `agenteval run`. The nonzero exit on failure gates the PR; upload `reports/` as an artifact and publish `junit.xml`.
 
 ## Releasing
 
-CI (`.github/workflows/ci.yml`) runs on every push and PR: a hermetic smoke test
-(`agenteval --help`, `validate`, `init`) across Python 3.9 to 3.12, plus a build
-and `twine check`. None of it calls a model, so it needs no secrets.
+CI (`.github/workflows/ci.yml`) runs on every push and PR: a hermetic smoke test (`agenteval --help`, `validate`, `init`) across Python 3.9 to 3.12, plus a build and `twine check`. None of it calls a model, so it needs no secrets.
 
-Releasing is tag driven. Pushing a tag like `v0.1.0` runs
-`.github/workflows/publish.yml`, which derives the version from the tag with
-`setuptools-scm`, publishes to PyPI via Trusted Publishing (OIDC) so no API
-tokens are stored, and creates the GitHub Release with autogenerated notes and
-the built artifacts attached.
+Releasing is tag driven. Pushing a tag like `v0.1.0` runs `.github/workflows/publish.yml`, which derives the version from the tag with `setuptools-scm`, publishes to PyPI via Trusted Publishing (OIDC) so no API tokens are stored, and creates the GitHub Release with autogenerated notes and the built artifacts attached.
 
 ```bash
 git tag v0.1.0
@@ -242,28 +232,25 @@ git push origin v0.1.0
 
 One-time setup (done once, then never again):
 
-1. On PyPI, add a *pending* trusted publisher for the project
-   `agenteval-framework` (Account → Publishing): owner `Minitour`, repo
-   `agenteval`, workflow `publish.yml`, environment `pypi`.
+1. On PyPI, add a *pending* trusted publisher for the project `agenteval-framework` (Account -> Publishing): owner `Minitour`, repo `agenteval`, workflow `publish.yml`, environment `pypi`.
 2. In the GitHub repo, create an Environment named `pypi`.
 
-You never edit a version by hand; the git tag is the single source of truth.
-To cut a release locally without CI you can still `python -m build` and
-`twine upload dist/*` with your own credentials.
+You never edit a version by hand; the git tag is the single source of truth. To cut a release locally without CI you can still `python -m build` and `twine upload dist/*` with your own credentials.
 
 ## Adding a provider
 
-Subclass `agenteval.providers.base.Provider` (implement `install`, `run`,
-`preflight`), then register it:
+Subclass `agenteval.providers.base.Provider` (implement `install`, `run`, `preflight`), then register it:
 
 ```python
 from agenteval.providers.registry import register
 register(MyProvider)
 ```
 
-`install` rewrites the `servers:` URLs in `capabilities.yaml` to the local mock
-endpoints and compiles them for the target harness; `run` invokes the agent and
-returns a normalized `ProviderRunOutput`. No core changes required.
+`install` rewrites the `servers:` URLs in `capabilities.yaml` to the local mock endpoints and compiles them for the target harness; `run` invokes the agent and returns a normalized `ProviderRunOutput`. No core changes required.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports go through [SECURITY.md](SECURITY.md).
 
 ## License
 
