@@ -36,14 +36,16 @@ class Runner:
     def __init__(
         self,
         cfg: GlobalConfig,
-        provider: Provider,
+        providers: dict[str, Provider],
+        default_provider: str,
         *,
         no_judge: bool = False,
         keep_workspace: bool = False,
         echo: Optional[EchoFn] = None,
     ):
         self.cfg = cfg
-        self.provider = provider
+        self.providers = providers
+        self.default_provider = default_provider
         self.no_judge = no_judge
         self.keep_workspace = keep_workspace
         self.echo = echo or _noop
@@ -51,13 +53,17 @@ class Runner:
 
     # ── public API ────────────────────────────────────────────────────────
 
+    def _provider_for(self, scenario: Scenario) -> Provider:
+        return self.providers[scenario.provider or self.default_provider]
+
     def run_scenario(self, scenario: Scenario) -> list[ScenarioResult]:
+        provider = self._provider_for(scenario)
         results: list[ScenarioResult] = []
         for model in scenario.run.models:
-            sr = ScenarioResult(scenario_id=scenario.id, provider=self.provider.name, model=model)
-            self.echo(f"\n  scenario '{scenario.id}'  provider={self.provider.name}  model={model}")
+            sr = ScenarioResult(scenario_id=scenario.id, provider=provider.name, model=model)
+            self.echo(f"\n  scenario '{scenario.id}'  provider={provider.name}  model={model}")
             for rep in range(1, scenario.run.repeats + 1):
-                rr = self._run_once(scenario, model, rep)
+                rr = self._run_once(scenario, provider, model, rep)
                 sr.runs.append(rr)
                 self._persist(rr)
                 self._echo_run(rr, rep, scenario.run.repeats)
@@ -66,13 +72,13 @@ class Runner:
 
     # ── one execution ───────────────────────────────────────────────────────
 
-    def _run_once(self, scenario: Scenario, model: str, rep: int) -> RunResult:
-        run_id = f"{scenario.id}__{self.provider.name}__{model}__r{rep}__{uuid.uuid4().hex[:8]}"
+    def _run_once(self, scenario: Scenario, provider: Provider, model: str, rep: int) -> RunResult:
+        run_id = f"{scenario.id}__{provider.name}__{model}__r{rep}__{uuid.uuid4().hex[:8]}"
         run_id = run_id.replace("/", "_").replace("[", "_").replace("]", "_")
         rr = RunResult(
             run_id=run_id,
             scenario_id=scenario.id,
-            provider=self.provider.name,
+            provider=provider.name,
             model=model,
             repeat_index=rep,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -85,11 +91,11 @@ class Runner:
         try:
             endpoints = manager.start()
             agent_dir = self.cfg.agents_dir / scenario.agent
-            self.provider.install(agent_dir=agent_dir, workspace=workspace, mock_endpoints=endpoints)
+            provider.install(agent_dir=agent_dir, workspace=workspace, mock_endpoints=endpoints)
 
             env = dict(os.environ)
             t0 = time.monotonic()
-            out = self.provider.run(
+            out = provider.run(
                 prompt=scenario.prompt,
                 workspace=workspace,
                 model=model,
@@ -137,7 +143,7 @@ class Runner:
             # registration included, stays available for debugging.
             if not self.keep_workspace:
                 try:
-                    self.provider.teardown(workspace=workspace)
+                    provider.teardown(workspace=workspace)
                 except Exception:
                     pass
                 ws.cleanup()
@@ -193,6 +199,3 @@ class Runner:
             f"    trial {rep}/{total}: {sym}  ${rr.total_cost_usd:.4f}  "
             f"turns={rr.num_turns}  {rr.duration_seconds:.1f}s{judge}{detail}"
         )
-
-    def label(self) -> str:
-        return self.provider.name

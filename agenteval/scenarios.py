@@ -54,7 +54,39 @@ def _parse_run(raw: dict[str, Any] | None, cfg: GlobalConfig) -> RunConfig:
     )
 
 
-def load_scenario(scenario_dir: Path, cfg: GlobalConfig) -> Scenario:
+def _parse_agents(raw_agent: Any, agent_override: list[str] | None, sid: str) -> list[str]:
+    """Resolve the agent(s) a scenario runs against.
+
+    A `--agent` override (CLI) wins over scenario.yaml. The `agent:` field may
+    be a single string or a list; a list expands into one (scenario, agent)
+    cell per agent so a cross-agent matrix lives in a single scenario file.
+    """
+    if agent_override:
+        agents = list(agent_override)
+    elif isinstance(raw_agent, (list, tuple)):
+        agents = list(raw_agent)
+    elif raw_agent:
+        agents = [raw_agent]
+    else:
+        raise ScenarioError(f"scenario '{sid}': 'agent' is required")
+    if not agents:
+        raise ScenarioError(f"scenario '{sid}': 'agent' is required")
+    if not all(isinstance(a, str) and a for a in agents):
+        raise ScenarioError(f"scenario '{sid}': 'agent' entries must be non-empty strings")
+    return agents
+
+
+def load_scenario(
+    scenario_dir: Path,
+    cfg: GlobalConfig,
+    agent_override: list[str] | None = None,
+) -> list[Scenario]:
+    """Parse one scenario.yaml into one or more Scenario cells.
+
+    Returns a list because `agent:` may be a list (one cell per agent). When a
+    single agent is used the scenario keeps its bare id; with multiple agents
+    each cell's id is suffixed with `[<agent>]` so ids stay unique.
+    """
     spec_path = scenario_dir / "scenario.yaml"
     if not spec_path.exists():
         raise ScenarioError(f"{scenario_dir} has no scenario.yaml")
@@ -72,8 +104,7 @@ def load_scenario(scenario_dir: Path, cfg: GlobalConfig) -> Scenario:
         prompt = p.read_text()
     prompt = str(prompt).strip()
 
-    if not raw.get("agent"):
-        raise ScenarioError(f"scenario '{sid}': 'agent' is required")
+    agents = _parse_agents(raw.get("agent"), agent_override, sid)
 
     assets = raw.get("assets")
     assets_dir: Path | None = None
@@ -82,21 +113,33 @@ def load_scenario(scenario_dir: Path, cfg: GlobalConfig) -> Scenario:
     elif (scenario_dir / "assets").is_dir():
         assets_dir = (scenario_dir / "assets").resolve()
 
-    return Scenario(
-        id=sid,
-        dir=scenario_dir.resolve(),
-        agent=raw["agent"],
-        prompt=prompt,
-        description=raw.get("description", ""),
-        mcp=list(raw.get("mcp", [])),
-        assets_dir=assets_dir,
-        assertions=_parse_assertions(raw.get("assertions", [])),
-        judge=_parse_judge(raw.get("judge"), cfg),
-        run=_parse_run(raw.get("run"), cfg),
-    )
+    provider = raw.get("provider")
+    multi = len(agents) > 1
+    scenarios: list[Scenario] = []
+    for agent in agents:
+        scenarios.append(
+            Scenario(
+                id=f"{sid}[{agent}]" if multi else sid,
+                dir=scenario_dir.resolve(),
+                agent=agent,
+                prompt=prompt,
+                description=raw.get("description", ""),
+                provider=provider,
+                mcp=list(raw.get("mcp", [])),
+                assets_dir=assets_dir,
+                assertions=_parse_assertions(raw.get("assertions", [])),
+                judge=_parse_judge(raw.get("judge"), cfg),
+                run=_parse_run(raw.get("run"), cfg),
+            )
+        )
+    return scenarios
 
 
-def discover_scenarios(cfg: GlobalConfig, name_filter: str | None = None) -> list[Scenario]:
+def discover_scenarios(
+    cfg: GlobalConfig,
+    name_filter: str | None = None,
+    agent_override: list[str] | None = None,
+) -> list[Scenario]:
     base = cfg.scenarios_dir
     if not base.is_dir():
         raise ScenarioError(f"no scenarios/ directory at {base}")
@@ -104,10 +147,10 @@ def discover_scenarios(cfg: GlobalConfig, name_filter: str | None = None) -> lis
     for child in sorted(base.iterdir()):
         if not child.is_dir() or not (child / "scenario.yaml").exists():
             continue
-        scenario = load_scenario(child, cfg)
-        if name_filter and name_filter not in scenario.id:
-            continue
-        out.append(scenario)
+        for scenario in load_scenario(child, cfg, agent_override):
+            if name_filter and name_filter not in scenario.id:
+                continue
+            out.append(scenario)
     return out
 
 

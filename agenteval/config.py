@@ -56,6 +56,7 @@ class GlobalConfig:
     judge_cli: str = "claude"
     report_dir: Path = field(default_factory=lambda: Path("reports"))
     providers: dict[str, dict[str, Any]] = field(default_factory=dict)
+    plugins: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -99,5 +100,6 @@ def load_config(root: Path) -> GlobalConfig:
         judge_cli=judge.get("cli", "claude"),
         report_dir=report_dir,
         providers=raw.get("providers", {}) or {},
+        plugins=list(raw.get("plugins", []) or []),
         raw=raw,
     )

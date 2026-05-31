@@ -165,6 +165,24 @@ judge:
   min_score: 0.6
 ```
 
+### Comparing agents and providers
+
+A scenario normally binds to one `agent`, but for benchmark-style comparisons you can give it a list. Each entry expands into its own `(scenario, agent)` cell that shares the same prompt, mocks, assertions, and rubric, so the whole matrix lives in one file (no symlinked duplicate scenarios). The cell ids are suffixed with the agent name to stay unique (e.g. `my-task[agent-a]`, `my-task[agent-b]`).
+
+```yaml
+id: my-task
+agent: [agent-a, agent-b, agent-c]   # one cell per agent
+```
+
+`--agent <name>` (repeatable) overrides the `agent:` field at invocation time, which is handy for running a single variant from a multi-agent scenario.
+
+When agents need different harnesses, a scenario can pin its own `provider:`, overriding the global one in `agenteval.yaml` (and falling through to it when absent). A single `agenteval run` then instantiates one provider per scenario as needed:
+
+```yaml
+agent: my-agent
+provider: my-provider            # this scenario uses a specific provider; others fall back to the global one
+```
+
 ### Assertion kinds
 
 | kind | params | checks |
@@ -213,7 +231,7 @@ agenteval validate   check structure without calling any model
 agenteval init       scaffold a new eval project
 ```
 
-`run` flags: `--root`, `--filter <substr>`, `--provider`, `--model` (repeatable), `--repeat N`, `--report-dir`, `--no-judge`, `--keep-workspace`, `-v`.
+`run` flags: `--root`, `--filter <substr>`, `--provider`, `--agent` (repeatable), `--model` (repeatable), `--repeat N`, `--report-dir`, `--no-judge`, `--keep-workspace`, `-v`.
 
 ## Reports
 
@@ -234,11 +252,28 @@ Templates are included for both GitHub Actions ([`examples/my-eval/.github/workf
 Subclass `agenteval.providers.base.Provider` (implement `install`, `run`, `preflight`), then register it:
 
 ```python
+# providers/my_provider.py
+from agenteval.providers.base import Provider
 from agenteval.providers.registry import register
+
+class MyProvider(Provider):
+    name = "my-provider"
+    ...
+
 register(MyProvider)
 ```
 
 `install` rewrites the `servers:` URLs in `capabilities.yaml` to the local mock endpoints and compiles them for the target harness; `run` invokes the agent and returns a normalized `ProviderRunOutput`. No core changes required.
+
+`register()` alone is not enough: the `agenteval` console script does not import your project, so the module that calls `register()` has to be loaded somehow. List it under `plugins:` in `agenteval.yaml` and the CLI imports it (with the project root on `sys.path`) before resolving providers — no wrapper script needed:
+
+```yaml
+# agenteval.yaml
+plugins:
+  - providers.my_provider   # importable module path, relative to the project root
+```
+
+Then `agenteval run --provider my-provider` just works. Naming a provider after a built-in (e.g. `claude`) shadows the bundled one and emits a warning; pass `register(MyProvider, force=True)` to silence it if that is intentional.
 
 ## Contributing
 

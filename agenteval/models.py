@@ -63,6 +63,7 @@ class Scenario:
     agent: str
     prompt: str
     description: str = ""
+    provider: Optional[str] = None
     mcp: list[str] = field(default_factory=list)
     assets_dir: Optional[Path] = None
     assertions: list[AssertionSpec] = field(default_factory=list)
@@ -80,6 +81,9 @@ class AssertionResult:
     required: bool
     passed: bool
     detail: str = ""
+
+    def label(self) -> str:
+        return self.name or self.kind
 
 
 @dataclass
