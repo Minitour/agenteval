@@ -79,6 +79,11 @@ cd my-eval
 
 This drops an `agenteval.yaml`, an agent, and one example scenario next to your code.
 
+You can also optionally install the `agenteval` skill to let your agent author tests:
+```bash
+capa add Minitour/agenteval@agenteval
+```
+
 ### 2. Add your credentials
 
 ```bash
