@@ -17,6 +17,44 @@ agenteval gives you the parts that are tedious to build yourself:
 
 Providers are pluggable; Claude Code ships first.
 
+## How it works
+
+For every `(scenario, model, repeat)` cell, agenteval builds an isolated
+environment, lets capa bootstrap the agent, runs it against local mocks, then
+checks the side effects. The mocks start **before** install so capa can
+validate tools against a live server.
+
+```mermaid
+flowchart TD
+  CLI["agenteval run"] --> Load["Load agenteval.yaml + .env<br/>discover &amp; validate scenarios"]
+  Load --> Loop{{"for each scenario x model x repeat"}}
+
+  Loop --> WS["Create ephemeral workspace<br/>copy scenario assets/"]
+  WS --> Mocks["Start MCP mocks from mcp/*/mock.yaml<br/>(schema + seed + handlers)<br/>alloc ports -&gt; endpoints"]
+
+  Mocks --> Compile["compile capabilities.yaml<br/>rewrite server URLs -&gt; live mocks<br/>make local paths absolute"]
+  Compile --> Install["capa install -p claude-code<br/>writes .claude/ skills + .mcp.json proxy"]
+  Install --> Run["claude --print --output-format json<br/>--mcp-config .mcp.json"]
+
+  Run --> Calls["agent calls tools<br/>capa proxy -&gt; mock<br/>every call recorded to __calls__"]
+  Calls --> Snap["snapshot mock state + tool calls<br/>capture usage / cost / final answer"]
+
+  Snap --> Assert["declarative assertions<br/>mock_state / tool_called / file / output"]
+  Assert --> Judge["optional LLM judge vs rubric.md<br/>score gated by min_score"]
+  Judge --> Record["RunResult: metrics + pass/fail + score"]
+  Record --> Teardown["stop mocks, clean workspace"]
+  Teardown --> Loop
+
+  Loop -->|all cells done| Agg["aggregate repeats<br/>mean / stddev / median / pass-rate"]
+  Agg --> Report["emit results.json + junit.xml<br/>report.md + console"]
+  Report --> Exit["exit nonzero if any required<br/>assertion or judge gate failed"]
+```
+
+The framework owns the workspace, the mocks, and the URL rewiring that connects
+them; it delegates *all* harness provisioning to `capa install -p <provider>`.
+A new provider is a `Provider` subclass that picks a different `-p` target and
+CLI, with no changes to the runner.
+
 ## Install
 
 ```bash
@@ -187,6 +225,26 @@ for a template. Copy it to your repo root `.github/workflows/`, provide
 `ANTHROPIC_API_KEY` as a secret, install `capa` and the `claude` CLI, then run
 `agenteval run`. The nonzero exit on failure gates the PR; upload `reports/` as
 an artifact and publish `junit.xml`.
+
+## Releasing
+
+CI (`.github/workflows/ci.yml`) runs on every push/PR: a hermetic smoke test
+(`agenteval --help`, `validate`, `init`) across Python 3.9–3.12 plus a build +
+`twine check`. None of it calls a model, so it needs no secrets.
+
+Publishing (`.github/workflows/publish.yml`) runs when you publish a GitHub
+Release and uploads to PyPI via **Trusted Publishing (OIDC)** — no API tokens
+stored. One-time setup:
+
+1. On PyPI, add a *pending* trusted publisher for the project `agenteval`
+   (Account → Publishing): owner `Minitour`, repo `agenteval`, workflow
+   `publish.yml`, environment `pypi`.
+2. In the GitHub repo, create an Environment named `pypi`.
+3. Bump `version` in `pyproject.toml`, then publish a GitHub Release (tag e.g.
+   `v0.1.0`). The workflow builds the sdist + wheel and publishes them.
+
+To cut a release locally without CI you can still `python -m build` and
+`twine upload dist/*` with your own credentials.
 
 ## Adding a provider
 
