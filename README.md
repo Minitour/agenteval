@@ -26,53 +26,21 @@ validate tools against a live server.
 
 ```mermaid
 flowchart TD
-  CLI["agenteval run"] --> Load["Load agenteval.yaml + .env<br/>discover and validate scenarios"]
-  Load --> Loop{{"for each scenario x model x repeat"}}
+  A["agenteval run"] --> B["load config + scenarios"]
+  B --> C{{"for each scenario x model x repeat"}}
 
-  subgraph Cell["one cell (scenario x model x repeat)"]
+  subgraph Cell["one cell"]
     direction TB
-
-    subgraph Setup["1. Setup (agenteval)"]
-      direction TB
-      WS["Create ephemeral workspace<br/>copy scenario assets/"]
-      Mocks["Start MCP mocks from mcp/*/mock.yaml<br/>schema + seed + handlers<br/>alloc ports -&gt; endpoints"]
-      WS --> Mocks
-    end
-
-    subgraph Boot["2. Bootstrap and run (capa + provider CLI)"]
-      direction TB
-      Compile["compile capabilities.yaml<br/>rewrite server URLs -&gt; live mocks<br/>make local paths absolute"]
-      Install["capa install -p claude-code<br/>writes .claude/ skills + .mcp.json proxy"]
-      Run["claude --print --output-format json<br/>--mcp-config .mcp.json"]
-      Compile --> Install --> Run
-    end
-
-    subgraph Capture["3. Capture (agenteval)"]
-      direction TB
-      Calls["agent -&gt; capa proxy -&gt; mock<br/>every call recorded to __calls__"]
-      Snap["snapshot mock state + tool calls<br/>capture usage / cost / final answer"]
-      Calls --> Snap
-    end
-
-    subgraph Eval["4. Evaluate (agenteval)"]
-      direction TB
-      Assert["declarative assertions<br/>mock_state / tool_called / file / output"]
-      Judge["optional LLM judge vs rubric.md<br/>score gated by min_score"]
-      Record["RunResult: metrics + pass/fail + score"]
-      Assert --> Judge --> Record
-    end
-
-    Teardown["stop mocks, clean workspace"]
-
-    Setup --> Boot --> Capture --> Eval --> Teardown
+    D["start MCP mocks + workspace"] --> E["capa install -p claude-code"]
+    E --> F["run agent"]
+    F --> G["assertions + optional LLM judge"]
+    G --> H["record result, teardown"]
   end
 
-  Loop --> Cell
-  Teardown --> Loop
-
-  Loop -->|all cells done| Agg["aggregate repeats<br/>mean / stddev / median / pass-rate"]
-  Agg --> Report["emit results.json + junit.xml<br/>report.md + console"]
-  Report --> Exit["exit nonzero if any required<br/>assertion or judge gate failed"]
+  C --> Cell
+  H --> C
+  C -->|all done| I["aggregate + emit reports"]
+  I --> J["exit nonzero on failure"]
 ```
 
 The framework owns the workspace, the mocks, and the URL rewiring that connects
