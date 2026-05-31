@@ -1,8 +1,8 @@
 # agenteval: Unit Tests for AI Agents
 
-[![PyPI](https://img.shields.io/pypi/v/agenteval-framework)](https://pypi.org/project/agenteval-framework/)
+[![PyPI](https://img.shields.io/pypi/v/agenteval-framework?)](https://pypi.org/project/agenteval-framework/)
 [![CI](https://github.com/Minitour/agenteval/actions/workflows/ci.yml/badge.svg)](https://github.com/Minitour/agenteval/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/pypi/pyversions/agenteval-framework)](https://pypi.org/project/agenteval-framework/)
+[![Python](https://img.shields.io/pypi/pyversions/agenteval-framework?)](https://pypi.org/project/agenteval-framework/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 agenteval treats an agent run like a unit test. You declare the agent once with [capa](https://github.com/infragate/capa)'s `capabilities.yaml`, write scenarios (a prompt, fake MCP servers seeded with known state, and assertions), and run the whole suite from one CI-friendly command. Providers are pluggable, and Claude Code ships first.
