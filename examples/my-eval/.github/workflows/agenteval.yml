@@ -3,9 +3,9 @@
 # Copy this to the ROOT of your repo at .github/workflows/agenteval.yml
 # (GitHub only runs workflows from the repository root, not from nested dirs).
 #
-# Prerequisites the job needs:
-#   - the `capa` binary on PATH (install step below is a placeholder)
-#   - the `claude` CLI on PATH, authenticated via ANTHROPIC_API_KEY secret
+# Prerequisites the job installs:
+#   - the `capa` binary
+#   - the `claude` CLI, authenticated via the ANTHROPIC_API_KEY secret
 name: agenteval
 
 on:
@@ -29,9 +29,10 @@ jobs:
 
       - name: Install agent prerequisites (capa + claude CLI)
         run: |
-          # Install the capa binary and the Claude Code CLI here.
-          # See the capa and Claude Code docs for the current install commands.
-          echo "install capa + claude CLI"
+          curl -LsSf https://capa.infragate.ai/install.sh | sh
+          curl -fsSL https://claude.ai/install.sh | bash
+          # both install to ~/.local/bin; put it on PATH for later steps
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run evals
         # claude-cli judge reuses ANTHROPIC_API_KEY; --report-dir keeps artifacts tidy

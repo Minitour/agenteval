@@ -1,0 +1,33 @@
+# Example GitLab CI config for an agenteval project.
+#
+# Copy this to the ROOT of your repo as .gitlab-ci.yml
+# (GitLab only runs the pipeline from .gitlab-ci.yml at the repository root).
+#
+# Prerequisites the job needs:
+#   - the `capa` binary on PATH (install step below is a placeholder)
+#   - the `claude` CLI on PATH, authenticated via the ANTHROPIC_API_KEY variable
+#     (set it in Settings > CI/CD > Variables, masked and protected)
+
+stages:
+  - eval
+
+agenteval:
+  stage: eval
+  image: python:3.11
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  script:
+    - pip install agenteval-framework
+    - curl -LsSf https://capa.infragate.ai/install.sh | sh
+    - curl -fsSL https://claude.ai/install.sh | bash
+    # both install to ~/.local/bin; put it on PATH for the rest of the job
+    - export PATH="$HOME/.local/bin:$PATH"
+    # claude-cli judge reuses ANTHROPIC_API_KEY; --report-dir keeps artifacts tidy
+    - agenteval run --root examples/my-eval --report-dir reports
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    reports:
+      junit: reports/junit.xml
