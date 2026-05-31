@@ -1,0 +1,35 @@
+id: slack-release-note
+description: Post a release announcement to the #releases Slack channel.
+agent: release-bot
+prompt_file: input/prompt.md
+mcp: [slack]
+
+run:
+  repeats: 1
+  max_turns: 15
+
+assertions:
+# Determinism: a message must land in #releases (channel_name 'releases').
+- kind: mock_state
+  name: posted-to-releases
+  server: slack
+  jsonpath: "$.messages[?(@.channel_name=='releases')]"
+  min_count: 1
+# The agent must actually call the post tool, not just claim it did.
+- kind: tool_called
+  name: called-send-message
+  server: slack
+  tool: slack_send_message
+  min_count: 1
+# It should discover the channel id first rather than hardcoding.
+- kind: tool_called
+  name: discovered-channel
+  server: slack
+  tool: slack_search_channels
+  min_count: 1
+  required: false
+
+# Quality is judged against the rubric; gates the run at min_score.
+judge:
+  rubric_file: rubric.md
+  min_score: 0.6

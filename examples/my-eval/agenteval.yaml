@@ -1,0 +1,22 @@
+# agenteval project config.
+provider: claude
+
+# Model passed to `claude --model`. Override on the CLI with --model.
+models: [claude-opus-4-8]
+repeats: 1
+timeout_seconds: 300
+max_turns: 15
+
+judge:
+  enabled: true
+  model: claude-opus-4-8
+  min_score: 0.6
+
+report:
+  dir: reports
+
+# Optional provider-specific overrides.
+providers:
+  claude:
+    cli: claude
+    capa_bin: capa

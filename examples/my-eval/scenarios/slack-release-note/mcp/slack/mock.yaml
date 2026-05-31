@@ -1,0 +1,27 @@
+# Slack mock backend.
+#
+# The tool schema is the REAL production Slack MCP schema, replayed verbatim
+# from schema.json (13 tools, ~48 KB). That bulk is exactly the context cost a
+# real agent pays. Behaviour lives in handler.py (stateful, ported from the
+# capa-benchmark Node mock); seed state below populates the workspace.
+name: slack
+schema: schema.json
+handler: handler.py
+
+seed:
+  team: { id: T_DEMO, name: capa-benchmark, domain: capa-bench }
+  channels:
+  - { id: C09GENERAL01, name: general,     is_archived: false, is_private: false, topic: { value: General company chat },          purpose: { value: Workspace-wide announcements and chatter } }
+  - { id: C09RELEASE01, name: releases,    is_archived: false, is_private: false, topic: { value: Backend release announcements }, purpose: { value: Announce backend and frontend releases here } }
+  - { id: C09ONCALL001, name: oncall,      is_archived: false, is_private: false, topic: { value: On-call triage and incidents },  purpose: { value: Live incidents and on-call rotations } }
+  - { id: C09ENGCORE01, name: engineering, is_archived: false, is_private: false, topic: { value: Engineering team chat },          purpose: { value: Eng-wide discussion, design reviews } }
+  - { id: C09DESIGN001, name: design,      is_archived: false, is_private: true,  topic: { value: Design team only },               purpose: { value: Design crit + handoffs } }
+  users:
+  - { id: U09J02RP7MK, name: capa-runner, real_name: Capa Runner, is_bot: false, profile: { email: runner@example.com, display_name: Capa Runner, title: Engineer, team: Backend } }
+  - { id: U09J0DEVOPS1, name: oncall-ops,  real_name: Oncall Ops,  is_bot: false, profile: { email: ops@example.com,    display_name: Oncall Ops,  title: SRE,      team: Platform Ops } }
+  - { id: U09J0DEVELOP, name: developer,   real_name: Developer,   is_bot: false, profile: { email: dev@example.com,    display_name: Developer,   title: Engineer, team: Backend } }
+  - { id: U09J0DESIGN1, name: designer,    real_name: Designer,    is_bot: false, profile: { email: design@example.com, display_name: Designer,    title: Designer, team: Design } }
+  messages: []
+  scheduled: []
+  drafts: []
+  canvases: []

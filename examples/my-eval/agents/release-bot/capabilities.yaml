@@ -1,0 +1,104 @@
+# release-bot: a Slack-capable agent defined with capa.
+#
+# agenteval rewrites the `servers:` url to a local mock at run time, so the
+# placeholder port below is never actually contacted.
+providers:
+- claude-code
+options:
+  toolExposure: expose-all
+agents:
+  base:
+    type: local
+    path: ./CLAUDE.md
+skills:
+- id: slack
+  type: local
+  def:
+    path: ./skills/slack
+    requires:
+    - '@slack.slack_send_message'
+    - '@slack.slack_schedule_message'
+    - '@slack.slack_create_canvas'
+    - '@slack.slack_update_canvas'
+    - '@slack.slack_search_public'
+    - '@slack.slack_search_public_and_private'
+    - '@slack.slack_search_channels'
+    - '@slack.slack_search_users'
+    - '@slack.slack_read_channel'
+    - '@slack.slack_read_thread'
+    - '@slack.slack_read_canvas'
+    - '@slack.slack_read_user_profile'
+    - '@slack.slack_send_message_draft'
+  description: Compose, search, and post to Slack channels, DMs, and canvases.
+servers:
+- id: slack
+  type: mcp
+  def:
+    url: http://127.0.0.1:4001/mcp
+  description: Slack mock backend (13 tools)
+tools:
+- id: slack_send_message
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_send_message
+- id: slack_schedule_message
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_schedule_message
+- id: slack_create_canvas
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_create_canvas
+- id: slack_update_canvas
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_update_canvas
+- id: slack_search_public
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_search_public
+- id: slack_search_public_and_private
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_search_public_and_private
+- id: slack_search_channels
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_search_channels
+- id: slack_search_users
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_search_users
+- id: slack_read_channel
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_read_channel
+- id: slack_read_thread
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_read_thread
+- id: slack_read_canvas
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_read_canvas
+- id: slack_read_user_profile
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_read_user_profile
+- id: slack_send_message_draft
+  type: mcp
+  def:
+    server: '@slack'
+    tool: slack_send_message_draft

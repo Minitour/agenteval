@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# agenteval runtime + outputs
+.agenteval-runtime/
+reports/
+**/mcp/**/state.json
+
+# secrets
+.env
+!**/.env.example
+
+# OS
+.DS_Store

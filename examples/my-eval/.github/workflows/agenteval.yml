@@ -1,0 +1,51 @@
+# Example CI workflow for an agenteval project.
+#
+# Copy this to the ROOT of your repo at .github/workflows/agenteval.yml
+# (GitHub only runs workflows from the repository root, not from nested dirs).
+#
+# Prerequisites the job needs:
+#   - the `capa` binary on PATH (install step below is a placeholder)
+#   - the `claude` CLI on PATH, authenticated via ANTHROPIC_API_KEY secret
+name: agenteval
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install agenteval
+        run: pip install agenteval
+
+      - name: Install agent prerequisites (capa + claude CLI)
+        run: |
+          # Install the capa binary and the Claude Code CLI here.
+          # See the capa and Claude Code docs for the current install commands.
+          echo "install capa + claude CLI"
+
+      - name: Run evals
+        # claude-cli judge reuses ANTHROPIC_API_KEY; --report-dir keeps artifacts tidy
+        run: agenteval run --root examples/my-eval --report-dir reports
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agenteval-reports
+          path: reports/
+
+      - name: Publish JUnit results
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: reports/junit.xml
