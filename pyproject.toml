@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "agenteval-framework"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Unit tests for agents. Define an agent with capa's capabilities.yaml, write scenarios and assertions, mock MCP servers, run in CI."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -47,3 +47,10 @@ agenteval = "agenteval.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["agenteval*"]
+
+[tool.setuptools_scm]
+# Version comes from the git tag (e.g. v0.1.0 -> 0.1.0). Untagged builds get a
+# dev version; fallback keeps non-git source trees buildable.
+version_scheme = "release-branch-semver"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
