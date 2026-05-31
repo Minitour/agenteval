@@ -23,7 +23,7 @@ from .templates import scaffold_project
 
 
 @click.group()
-@click.version_option(package_name="agenteval")
+@click.version_option(package_name="agenteval-framework")
 def main() -> None:
     """Unit tests for agents, powered by capa's capabilities.yaml."""
 
