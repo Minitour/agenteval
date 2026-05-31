@@ -83,8 +83,11 @@ CLI, with no changes to the runner.
 ## Install
 
 ```bash
-pip install agenteval
+pip install agenteval-framework
 ```
+
+The distribution is `agenteval-framework`; the import package and the CLI are
+both `agenteval`.
 
 Prerequisites (external, documented by their projects):
 
@@ -261,9 +264,9 @@ Publishing (`.github/workflows/publish.yml`) runs when you publish a GitHub
 Release and uploads to PyPI via **Trusted Publishing (OIDC)** — no API tokens
 stored. One-time setup:
 
-1. On PyPI, add a *pending* trusted publisher for the project `agenteval`
-   (Account → Publishing): owner `Minitour`, repo `agenteval`, workflow
-   `publish.yml`, environment `pypi`.
+1. On PyPI, add a *pending* trusted publisher for the project
+   `agenteval-framework` (Account → Publishing): owner `Minitour`, repo
+   `agenteval`, workflow `publish.yml`, environment `pypi`.
 2. In the GitHub repo, create an Environment named `pypi`.
 3. Bump `version` in `pyproject.toml`, then publish a GitHub Release (tag e.g.
    `v0.1.0`). The workflow builds the sdist + wheel and publishes them.

@@ -25,7 +25,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install agenteval
-        run: pip install agenteval
+        run: pip install agenteval-framework
 
       - name: Install agent prerequisites (capa + claude CLI)
         run: |
