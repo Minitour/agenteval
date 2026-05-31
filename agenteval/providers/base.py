@@ -60,6 +60,15 @@ class Provider(ABC):
     ) -> ProviderRunOutput:
         """Run one prompt in the workspace and return normalized metrics."""
 
+    def teardown(self, *, workspace: Path) -> None:
+        """Undo whatever install() registered outside the workspace.
+
+        Called after every run (before the workspace is deleted) so the run
+        leaves nothing behind in capa's database or the provider's client
+        config. Best effort; default is a no-op for providers that register
+        nothing externally.
+        """
+
     def preflight(self) -> list[str]:
         """Return a list of missing prerequisites (binaries, env). Empty = ready."""
         return []

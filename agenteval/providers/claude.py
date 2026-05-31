@@ -116,6 +116,24 @@ class ClaudeProvider(Provider):
         if not mcp_json.exists():
             mcp_json.write_text(json.dumps({"mcpServers": {}}))
 
+    def teardown(self, *, workspace: Path) -> None:
+        # `capa clean` removes the managed files and, importantly, unregisters
+        # the MCP server and deletes the project entry from capa's database.
+        # Run it in the workspace before the directory is deleted, otherwise the
+        # entry is orphaned in capa for every run. Best effort.
+        capa_bin = self.config.get("capa_bin", "capa")
+        try:
+            subprocess.run(
+                [capa_bin, "clean"],
+                cwd=str(workspace),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except Exception:
+            pass
+
     def run(
         self,
         *,

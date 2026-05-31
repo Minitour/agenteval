@@ -131,7 +131,15 @@ class Runner:
             rr.passed = False
         finally:
             manager.stop()
+            # Deregister from capa (and clean managed files) before deleting the
+            # workspace, so each test leaves no entry behind in capa's database.
+            # Skipped under --keep-workspace so the full installed state, capa
+            # registration included, stays available for debugging.
             if not self.keep_workspace:
+                try:
+                    self.provider.teardown(workspace=workspace)
+                except Exception:
+                    pass
                 ws.cleanup()
         return rr
 
